@@ -1,7 +1,7 @@
-from Code.Stabilization import stablize
-from Code.BackgroundSubtraction import BS
-from Code.Matting import matting
-from Code.Tracking import track
+from videoProject.Code.Stabilization import stablize
+from videoProject.Code.BackgroundSubtraction import BS
+from videoProject.Code.Matting import matting
+from videoProject.Code.Tracking import track
 import time
 
 
