@@ -1,0 +1,13 @@
+Stablize took 56.776105880737305 seconds
+background took 95.08481359481812 seconds.
+matting took 100.42305040359497 seconds.
+tracking took 140.36220598220825 seconds
+Total run took 392.8710675239563‬ secondsStablize took 0.0 seconds
+background took 100.42577767372131 seconds.
+matting took 0.0 seconds.
+tracking took 0.0 seconds
+Total run took 100.42577767372131 secondsStablize took 55.56117558479309 seconds
+background took 107.40875434875488 seconds.
+matting took 100.97978472709656 seconds.
+tracking took 142.37953233718872 seconds
+Total run took 406.32924699783325 seconds
