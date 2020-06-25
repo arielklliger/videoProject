@@ -3,7 +3,7 @@ from videoProject.Code.BackgroundSubtraction import BS
 from videoProject.Code.Matting import matting
 from videoProject.Code.Tracking import track
 import time
-
+import cv2
 
 
 
@@ -54,5 +54,8 @@ def runme():
     f.write("Total run took " + str(total)+ " seconds")
 
 #runme()
-BS("../Output/med12fg.avi")
-#matting("../Output/stabilize.avi","../Output/binary_contour_or.avi",'../Input/background.jpg')
+#stablize("../Input/INPUT.avi")
+#BS("../Output/stabilize.avi")
+fginitial = cv2.imread("fgInitial.png")
+fginitial = cv2.cvtColor(fginitial, cv2.COLOR_BGR2GRAY)
+matting("../Output/stabilize.avi","../Output/binary.avi",'../Input/background.jpg',fginitial)

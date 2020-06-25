@@ -5,8 +5,8 @@ import numpy as np
 
 def BS(video):
 
-    outputNameMask = "../Output/binary_contour_or_hsv.avi"
-    outputNameExtracted = "../Output/extracted_contour_or_hsv.avi"
+    outputNameMask = "../Output/binary.avi"
+    outputNameExtracted = "../Output/extracted.avi"
     cap = cv2.VideoCapture(video)
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -66,7 +66,9 @@ def BS(video):
             singleContourMask = cv2.drawContours(singleContourMask,contours,0,(255,255,255),-1)
             maskOR = singleContourMask
             maskOR = cv2.morphologyEx(maskOR, cv2.MORPH_CLOSE, kernel)
-            #maskOR  = cv2.medianBlur(maskOR, 15)
+            maskOR = cv2.medianBlur(maskOR, 23)
+            maskOR[maskOR != 0] = 255
+
 
             #make extracted video
             foreground0 = (frame[:, :, 0])
