@@ -1,7 +1,8 @@
-from videoProject.Code.Stabilization import stablize
-from videoProject.Code.BackgroundSubtraction import BS
-from videoProject.Code.Matting import matting
-from videoProject.Code.Tracking import track
+from Code.Stabilization import stablize
+from Code.BackgroundSubtraction import BS
+from Code.Matting import matting,makeMatted,stabilize_vid
+from Code.Tracking import track
+from Code.BS import BackS
 import time
 import cv2
 
@@ -24,7 +25,7 @@ def runme():
     #start BS
     print("Start background subtraction")
     t = time.time()
-    BS("../Output/stabilize.avi")
+    BackS("../Output/Stabilized_Example_INPUT.avi")
     print("Done background subtraction")
     t = time.time() - t
     print("--- %s seconds ---" % (t))
@@ -33,7 +34,7 @@ def runme():
     #start matting
     t = time.time()
     print("Start matting")
-    matting("../Output/stabilize.avi","../Output/binary.avi",'../Input/background.jpg')
+    makeMatted("../Output/extracted.avi","../Output/binary.avi",'../Input/background.jpg')
     print("Done matting")
     t = time.time() - t
     print("--- %s seconds ---" % (t))
@@ -53,9 +54,13 @@ def runme():
     print("Done")
     f.write("Total run took " + str(total)+ " seconds")
 
-#runme()
+runme()
 #stablize("../Input/INPUT.avi")
-#BS("../Output/stabilize.avi")
-fginitial = cv2.imread("fgInitial.png")
-fginitial = cv2.cvtColor(fginitial, cv2.COLOR_BGR2GRAY)
-matting("../Output/stabilize.avi","../Output/binary.avi",'../Input/background.jpg',fginitial)
+#BS("../Output/Stabilized_Example_INPUT.avi")
+#stablize("../Input/INPUT.avi")
+#fginitial = cv2.imread("fgInitial.png")
+#fginitial = cv2.cvtColor(fginitial, cv2.COLOR_BGR2GRAY)
+#start_time = time.time()
+#matting("../Output/stabilize.avi","../Output/binary.avi",'../Input/background.jpg',fginitial)
+#end_time = time.time() - start_time
+#print("matting took "+str(end_time)+" seconds.")

@@ -1,3 +1,5 @@
+import sys
+
 import GeodisTK
 import cv2
 import numpy as np
@@ -135,6 +137,7 @@ def matting(stabilize, binary, background, fginitial):
             mat_frame2 = np.add(np.multiply(alpha, stab_frame[:,:,2]), np.multiply(1-alpha,background[:,:,2]))
 
             mat_frame = np.dstack((np.dstack((mat_frame0, mat_frame1)),mat_frame2))
+            mat_frame = mat_frame.astype('uint8')
             alpha = alpha *255
             alpha = alpha.astype('uint8')
 
@@ -208,3 +211,169 @@ def makeMatted(video,mask,image):
     cap.release()
     cv2.destroyAllWindows()
 
+def movingAverage(curve, radius):
+    window_size = 2 * radius + 1
+    # Define the filter
+    f = np.ones(window_size) / window_size
+    # Add padding to the boundaries
+    curve_pad = np.lib.pad(curve, (radius, radius), 'edge')
+    # Apply convolution
+    curve_smoothed = np.convolve(curve_pad, f, mode='same')
+    # Remove padding
+    curve_smoothed = curve_smoothed[radius:-radius]
+    # return smoothed curve
+    return curve_smoothed
+
+
+def smooth(trajectory):
+    smoothed_trajectory = np.copy(trajectory)
+    # Filter the x, y and angle curves
+    for i in range(3):
+        smoothed_trajectory[:, i] = movingAverage(trajectory[:, i], radius=SMOOTHING_RADIUS)
+
+    return smoothed_trajectory
+
+
+def fixBorder(frame, shouldUnstabilize = False):
+    s = frame.shape
+    # Scale the image 4% without moving the center
+    scaleFactor = 1.04 if not shouldUnstabilize else 25/26
+    T = cv2.getRotationMatrix2D((s[1] / 2, s[0] / 2), 0, scaleFactor)
+    frame = cv2.warpAffine(frame, T, (s[1], s[0]))
+    return frame
+
+
+
+def stabilize_vid(analyze_name, target_name, out_name, shouldUnstabilize = False):
+    cap = cv2.VideoCapture('{}.avi'.format(analyze_name))
+    target_cap = cv2.VideoCapture('{}.avi'.format(target_name))
+    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+
+    #sbs_out = cv2.VideoWriter('sideBySide.avi'.format(out_name), fourcc, fps, (width*2, height*2), 1)
+    out_reg = cv2.VideoWriter('{}.avi'.format(out_name), fourcc, fps, (width, height),1)
+    # read the first frame
+    _, prev = cap.read()
+
+    prev_gray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
+    transforms = np.zeros((n_frames - 1, 3), np.float32)
+
+    for i in range(n_frames - 2):
+        prev_pts = cv2.goodFeaturesToTrack(prev_gray, maxCorners=50,
+                                           qualityLevel=0.1,
+                                           minDistance=40,
+                                           blockSize=40,
+                                           useHarrisDetector=False)
+
+        succ, curr = cap.read()
+
+        if not succ:
+            break
+
+        curr_gray = cv2.cvtColor(curr, cv2.COLOR_BGR2GRAY)
+
+        # Track feature points
+        # status = 1. if flow points are found
+        # err if flow was not find the error is not defined
+        # curr_pts = calculated new positions of input features in the second image
+        curr_pts, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray, prev_pts, None)
+
+        idx = np.where(status == 1)[0]
+        prev_pts = prev_pts[idx]
+        curr_pts = curr_pts[idx]
+        assert prev_pts.shape == curr_pts.shape
+
+        # fullAffine= FAlse will set the degree of freedom to only 5 i.e translation, rotation and scaling
+        # try fullAffine = True
+        m = cv2.estimateAffinePartial2D(prev_pts, curr_pts)[0]
+
+        dx = m[0, 2]
+        dy = m[1, 2]
+
+        # Extract rotation angle
+        da = np.arctan2(m[1, 0], m[0, 0])
+
+        transforms[i] = [dx, dy, da]
+
+        prev_gray = curr_gray
+
+    # print("Frame: " + str(i) +  "/" + str(n_frames) + " -  Tracked points : " + str(len(prev_pts)))
+
+    # Find the cumulative sum of tranform matrix for each dx,dy and da
+    trajectory = np.cumsum(transforms, axis=0)
+
+    smoothed_trajectory = smooth(trajectory)
+    difference = smoothed_trajectory - trajectory
+    transforms_smooth = transforms + difference
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+
+    for i in range(n_frames - 2):
+        sys.stdout.write("\r in frame {}".format(i))
+        sys.stdout.flush()
+        # Read next frame
+        success, frame = target_cap.read()
+        if not success:
+            break
+
+        # Extract transformations from the new transformation array
+        dx = transforms_smooth[i, 0]
+        dy = transforms_smooth[i, 1]
+        da = transforms_smooth[i, 2]
+
+        # Reconstruct transformation matrix accordingly to new values
+        MULTIPLIER = 1.0
+        m = np.zeros((2, 3), np.float32)
+        m[0, 0] = 1 #np.cos(da)
+        m[0, 1] = -np.sin(da)*MULTIPLIER
+        m[1, 0] = np.sin(da)*MULTIPLIER
+        m[1, 1] = 1 #np.cos(da)
+        m[0, 2] = dx
+        m[1, 2] = dy
+
+        if(shouldUnstabilize):
+            #det = abs(m[0, 1] * m[1, 2] - m[0, 2] * m[1, 0])
+            #m[1, 0],  m[0, 1] = m[0, 1],  m[1, 0]
+            m[1, 0] *= -1
+            m[0, 1] *= -1
+            m[0, 2] *= -1
+            m[1, 2] *= -1
+            # m[1, 0] /= det
+            # m[0, 1] /= det
+            # m[0, 1] /= det
+            # m[1, 0] /= det
+            # m[0, 2] /= det
+            # m[1, 2] /= det
+
+        # Apply affine wrapping to the given frame
+        frame_stabilized = cv2.warpAffine(frame, m, (width, height))
+
+        # Fix border artifacts
+        frame_stabilized = fixBorder(frame_stabilized, shouldUnstabilize)
+
+        # # Write the frame to the file
+        # frame_out = cv2.hconcat([frame, frame_stabilized])
+        #
+        # # If the image is too big, resize it.
+        # if (frame_out.shape[1] > 1920):
+        #     frame_out = cv2.resize(frame_out, (frame_out.shape[1] // 2, frame_out.shape[0] // 2));
+
+        #frame_out = frame_out.astype('uint8')
+        #cv2.imshow("Before and After", frame_stabilized)
+        #cv2.imwrite("iag.jpg",frame_stabilized)
+        #cv2.waitKey(10)
+        frame_stabilized = frame_stabilized.astype('uint8')
+        out_reg.write(frame_stabilized)
+        #sbs_out.write(frame_out)
+
+    # Release video
+    cap.release()
+    out_reg.release()
+    #sbs_out.release()
+    # Close windows
+    cv2.destroyAllWindows()

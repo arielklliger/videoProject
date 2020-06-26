@@ -1,5 +1,3 @@
-# source learnopencv.com
-
 import numpy as np
 import cv2
 

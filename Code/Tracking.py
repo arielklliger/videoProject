@@ -13,7 +13,6 @@ def track(video):
     # Read video
     video = cv2.VideoCapture(video)
     n_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    fgbg = cv2.createBackgroundSubtractorMOG2()
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     fps = video.get(cv2.CAP_PROP_FPS)
     height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
