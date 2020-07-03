@@ -1,13 +1,9 @@
 import cv2
 import sys
 
-def track(video):
-    # Set up tracker.
-    # Instead of MIL, you can also use
-    outputNameFG = "../Output/OUTPUT.avi"
-    tracker_types = ['BOOSTING', 'MIL', 'KCF', 'TLD', 'MEDIANFLOW', 'CSRT', 'MOSSE']
-    tracker_type = tracker_types[5]
-    tracker = tracker = cv2.TrackerCSRT_create()
+def track(video,userInput=False):
+    outputNameFG = "../Outputs/OUTPUT.avi"
+    tracker = cv2.TrackerCSRT_create()
 
 
     # Read video
@@ -36,7 +32,8 @@ def track(video):
     bbox = (0, 210, 405, 777)
 
     # Uncomment the line below to select a different bounding box
-    #bbox = cv2.selectROI(frame, False)
+    if (userInput):
+        bbox = cv2.selectROI(frame, False)
     #print (bbox)
 
     # Initialize tracker with first frame and bounding box
@@ -66,14 +63,7 @@ def track(video):
             # Tracking failure
             cv2.putText(frame, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
 
-        # Display tracker type on frame
-        #cv2.putText(frame, tracker_type + " Tracker", (100, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2);
-
-        # Display FPS on frame
-        #cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2);
-
         # Display result
-        #cv2.imshow("Tracking", frame)
         frame = frame.astype('uint8')
         outFG.write(frame)
         count +=1

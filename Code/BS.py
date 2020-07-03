@@ -87,12 +87,12 @@ def BackS(video):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     out_size = (width, height)
-    output_name = "../Output/binary.avi"
-    outputNameExtracted = "../Output/extracted.avi"
+    output_name = "../Outputs/binary.avi"
+    outputNameExtracted = "../Outputs/extracted.avi"
     outExtracted = cv2.VideoWriter(outputNameExtracted, fourcc, fps, out_size, 1)
     bs_kde = cv2.VideoWriter(output_name, fourcc, fps, out_size, 0)
     isFirst = 1
-    kernel = np.ones((5, 5), np.uint8)
+    kernel = np.ones((10, 10), np.uint8)
     count =0
     old_p = 0
     #background = cv2.resize(background, (width, height))
@@ -105,17 +105,28 @@ def BackS(video):
         # bin_frame0[bin_frame0 > 100] = 255
         if ret:
 
+            #using s channel
             frame_hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
             frame_0_channel = frame_hsv[:, :, 1]
-            # frame_1_channel = frame_hsv[:, :, 1]
-            # frame_2_channel = frame_hsv[:, :, 2]
             background_HSV = cv2.cvtColor(background, cv2.COLOR_RGB2HSV)
-            background_0_channel = frame_hsv[:, :, 1]
-            # background_1_channel = frame_hsv[:, :, 1]
-            # background_2_channel = frame_hsv[:, :, 2]
+            background_0_channel = background_HSV[:, :, 1]
+
+            #using quant and base
+            frame_quant = frame/8
+            frame_quant = frame_quant.astype('uint32')
+            frame_quant = frame_quant[:,:,0] + frame_quant[:,:,1]*32
+            background_quant = background/8
+            background_quant =background_quant.astype('uint32')
+            background_quant =background_quant[:, :, 0] +background_quant[:, :, 1] * 32
+
+            frame_0_channel = frame_quant
+            background_0_channel = background_quant
+
             if isFirst == 1:
-                print("Preforming KDE, this will take just under a minute")
+                print("Preforming KDE, this will take a minute")
                 cv2.imwrite("first_frame.jpg",frame)
+                diff = frame - background
+                cv2.imwrite("diff.jpg", diff)
                 foreground_0_dataset = (frame_0_channel[fginitial == 0]).T
                 background_0_dataset = (background_0_channel[fginitial == 255]).T
                 # foreground_0_dataset = (frame_0_channel[fginitial == 0]).T
@@ -125,7 +136,7 @@ def BackS(video):
                 # background_1_dataset = (background_1_channel[fginitial == 255]).T
                 # background_2_dataset = (background_2_channel[fginitial == 255]).T
 
-                grid = np.linspace(0, 255, 256)
+                grid = np.linspace(0, 1023, 1024)
                 foreground_0_pdf = kde_scipy(foreground_0_dataset, grid)
                 # foreground_1_pdf = kde_scipy(foreground_1_dataset, grid)
                 # foreground_2_pdf = kde_scipy(foreground_2_dataset, grid)
@@ -139,23 +150,22 @@ def BackS(video):
                 print("Done preforming KDE")
 
             frame_bin = BetterBuildFrame(frame_0_channel,fg_prob,bg_prob,width,height)
-            cv2.imwrite("first_kde.jpg",frame_bin)
             frame_bin = frame_bin.astype('uint8')
-            frame_bin = cv2.morphologyEx(frame_bin, cv2.MORPH_CLOSE, kernel)
-            frame_bin = cv2.morphologyEx(frame_bin, cv2.MORPH_CLOSE, kernel)
+            frame_bin = cv2.morphologyEx(frame_bin, cv2.MORPH_OPEN, kernel)
+            #frame_bin = cv2.morphologyEx(frame_bin, cv2.MORPH_CLOSE, kernel)
+
+
+            #contours
             contours, _ = cv2.findContours(frame_bin, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
             contours = sorted(contours, key=lambda x: len(x), reverse=True)
             singleContourMask = np.zeros((height, width), np.uint8)
             singleContourMask = cv2.drawContours(singleContourMask, contours, 0, (255, 255, 255), -1)
 
             frame_bin = singleContourMask
+            frame_bin = cv2.morphologyEx(frame_bin, cv2.MORPH_CLOSE, kernel)
+            cv2.imwrite("first_kde.jpg", frame_bin)
             frame_bin = cv2.medianBlur(frame_bin, 23)
-            contours, _ = cv2.findContours(frame_bin, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-            contours = sorted(contours, key=lambda x: len(x), reverse=True)
-            singleContourMask = np.zeros((height, width), np.uint8)
-            singleContourMask = cv2.drawContours(singleContourMask, contours, 0, (255, 255, 255), -1)
 
-            frame_bin = singleContourMask
             #frame_bin = cv2.erode(frame_bin, kernel, iterations=2)
             #frame_v_channel[fg_prob>bg_prob] = 255
             #frame_v_channel[fg_prob<=bg_prob] = 0
@@ -191,8 +201,8 @@ def BackS(video):
     cap.release()
     cv2.destroyAllWindows()
 # start_time = time.time()
-# #BackS("../Output/stabilize.avi")
-# BackS("../Output/Stabilized_Example_INPUT.avi")
+# #BackS("../Outputs/stabilize.avi")
+# BackS("../Outputs/Stabilized_Example_INPUT.avi")
 # end_time = time.time()
 # total = end_time-start_time
 # print("took "+str(total)+" seconds.")
