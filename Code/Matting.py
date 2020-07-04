@@ -137,7 +137,7 @@ def matting(stabilize, binary, background):
                 grid = np.linspace(0, 255, 256)
                 foreground_pdf = kde_scipy(foreground_dataset, grid)
                 ok = tracker.init(stab_frame, bbox)
-                background_resize = cv2.resize(old_bg_v, (int(width / 4), int(height / 4)))
+                background_resize = cv2.resize(old_bg_v, (int(width / 2), int(height / 2)))
                 background_dataset = background_resize.flatten()
                 background_pdf = kde_scipy(background_dataset, grid)
                 fg_prob = foreground_pdf / (foreground_pdf + background_pdf)

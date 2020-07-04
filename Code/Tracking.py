@@ -14,31 +14,28 @@ def track(video,userInput=False):
     outFG = cv2.VideoWriter(outputNameFG, fourcc, fps, out_size, 1)
     count=0
     old_p=0
-    if not video.isOpened():
-        print("Could not open video")
-        return
 
 
-    ok, frame = video.read()
+    ret, frame = video.read()
 
     bbox = (0, 210, 405, 777)
     if (userInput):
         bbox = cv2.selectROI(frame, False)
 
-    ok = tracker.init(frame, bbox)
+    ret = tracker.init(frame, bbox)
 
     while video.isOpened():
-        ok, frame = video.read()
-        if not ok:
+        ret, frame = video.read()
+        if not ret:
             break
 
-        ok, bbox = tracker.update(frame)
-        if ok:
+        ret, bbox = tracker.update(frame)
+        if ret:
             p1 = (int(bbox[0]), int(bbox[1]))
             p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
             cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
         else:
-            cv2.putText(frame, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
+            cv2.putText(frame, "tracking failed", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
 
         frame = frame.astype('uint8')
         outFG.write(frame)

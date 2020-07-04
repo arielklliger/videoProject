@@ -67,14 +67,13 @@ runme()
 # RUN BLOCKS INDIVIDUALLY #
 ###########################
 # For running stabilization only un-comment this line:
-# stablize("../Input/INPUT.avi")
+#stablize("../Input/INPUT.avi")
 
 # For running BS only un-comment this line:
 #bgs("../Outputs/stabilize.avi")
 
 # For running matting only un-comment this line:
 #matting("../Outputs/stabilize.avi", "../Outputs/binary.avi", '../Input/background.jpg')
-
 # For running tracking only un-comment this line:
 # If you want to choose the tracking box change this user_input flag to True
 #user_input = False

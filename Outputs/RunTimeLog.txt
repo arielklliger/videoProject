@@ -1,5 +1,5 @@
-Stablize took 57.26188826560974 seconds
-background subtraction took 173.12389302253723 seconds.
-matting took 783.0282597541809 seconds.
-tracking took 129.9979739189148 seconds
-Total run took 1143.4120149612427 seconds
+Stabilization took 52.8 seconds 
+Background Subtraction took 172.6 seconds 
+Matting took 1263.9 seconds 
+Tracking took 123.0 seconds 
+Total run took 1612.3 seconds 

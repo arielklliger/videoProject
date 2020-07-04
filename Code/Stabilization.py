@@ -62,7 +62,7 @@ def stablize(video):
         idx = np.where(status == 1)[0]
         prev_pts = prev_pts[idx]
         curr_pts = curr_pts[idx]
-        assert prev_pts.shape == curr_pts.shape
+
 
         #calc m
         m = cv2.estimateAffinePartial2D(prev_pts, curr_pts)[0]
@@ -138,7 +138,7 @@ def unstablize(analyze_name, target_name):
         idx = np.where(status == 1)[0]
         prev_pts = prev_pts[idx]
         curr_pts = curr_pts[idx]
-        assert prev_pts.shape == curr_pts.shape
+
 
         #calc m
         m = cv2.estimateAffinePartial2D(prev_pts, curr_pts)[0]
