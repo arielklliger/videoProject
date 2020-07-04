@@ -3,17 +3,13 @@ import cv2
 import numpy as np
 from scipy.stats import gaussian_kde
 from CODE.Stabilization import  unstablize
+import warnings
 
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def getMedianBGFromVideo(video):
 
-    # Open Video
     cap = cv2.VideoCapture(video)
-
-
-    #Randomly select 25 frames
-    #frameIds = cap.get(cv2.CAP_PROP_FRAME_COUNT) * np.random.uniform(size=150)
-
     frameIdsStart = [0, 1, 2]
     vidLength = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     frameIdsEnd = [vidLength-3, vidLength-2, vidLength-1]
@@ -25,14 +21,13 @@ def getMedianBGFromVideo(video):
     right_mask = np.zeros((height, width)).astype(dtype=np.uint8)
     right_mask[:, width//2:] = half_ones
 
-    # Store selected frames in an array
     frames = []
     for fid in frameIdsStart:
         cap.set(cv2.CAP_PROP_POS_FRAMES, fid)
         ret, frame = cap.read()
         frames.append(frame)
 
-    medianStartFrame = np.median(frames, axis=0).astype(dtype=np.uint8)
+    earlyMedian = np.median(frames, axis=0).astype(dtype=np.uint8)
 
     frames = []
     for fid in frameIdsEnd:
@@ -40,27 +35,21 @@ def getMedianBGFromVideo(video):
         ret, frame = cap.read()
         frames.append(frame)
 
-    medianEndFrame = np.median(frames, axis=0).astype(dtype=np.uint8)
+    endMedian = np.median(frames, axis=0).astype(dtype=np.uint8)
 
-    # Display median frame
-    # cv2.imshow('frame', medianStartFrame)
-    # cv2.waitKey(0)
-    # cv2.imshow('frame', medianEndFrame)
-    # cv2.waitKey(0)
-    bg = cv2.bitwise_and(medianStartFrame, medianStartFrame, mask=right_mask) + cv2.bitwise_and(medianEndFrame, medianEndFrame, mask=left_mask)
+    bg = cv2.bitwise_and(earlyMedian, earlyMedian, mask=right_mask) + cv2.bitwise_and(endMedian, endMedian, mask=left_mask)
     cv2.imwrite('../Temp/bg_cut.jpg', bg)
-    # cv2.waitKey(0)
     return bg
 
 
 
-def kde_scipy(x, x_grid, bandwidth=0.2, **kwargs):
+def kde_scipy(x, x_grid, **kwargs):
     kde = gaussian_kde(x, bw_method='silverman', **kwargs)
     return kde.evaluate(x_grid)
 
 
 def calc_alpha(frame_v_channel, binary, background, fg_prob, bg_prob):
-    binary[binary < 255] = 0  #######
+    binary[binary < 255] = 0
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     small_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     fg_prob_map = fg_prob[frame_v_channel]
@@ -68,8 +57,6 @@ def calc_alpha(frame_v_channel, binary, background, fg_prob, bg_prob):
 
     fg_prob_map = fg_prob_map.astype('float32')
     bg_prob_map = bg_prob_map.astype('float32')
-
-
 
     fg_prob_map_grad = fg_prob_map
     bg_prob_map_grad = bg_prob_map
@@ -121,23 +108,20 @@ def matting(stabilize, binary, background):
     old_p = 0
     n_frames = int(stab_cap.get(cv2.CAP_PROP_FRAME_COUNT))
     onceBg = 0
-
     isFirst = 0
 
     #for tracking
-    bbox = (11, 206, 394, 752)
+    #bbox = (11, 400, 100, 800)
+    #bbox = (0, 158, 517, 813)
+    bbox = (31, 198, 444, 750)
     tracker = cv2.TrackerCSRT_create()
 
     while (stab_cap.isOpened() and bin_cap.isOpened()):
         init = np.zeros((height, width))
-        #print("Processing frame: {}".format(i))
         stab_ret, stab_frame = stab_cap.read()
         bin_ret, bin_frame = bin_cap.read()
         if stab_ret and bin_ret:
-
             stab_frame_hsv = cv2.cvtColor(stab_frame, cv2.COLOR_RGB2HSV)
-
-            #cv2.imwrite("bin.jpg", bin_frame)
             bin_frame0 = bin_frame[:, :, 0]
             bin_frame0[bin_frame0 < 100] = 0
             bin_frame0[bin_frame0 > 100] = 255
@@ -146,30 +130,29 @@ def matting(stabilize, binary, background):
                 frame_v_channel = stab_frame_hsv[:, :, 2]
                 background_HSV = cv2.cvtColor(old_bg, cv2.COLOR_RGB2HSV)
                 old_bg_v = background_HSV[:, :, 2]
-                # debug
 
                 # kde
                 foreground_dataset = (frame_v_channel[bin_frame0 == 255]).T
 
                 grid = np.linspace(0, 255, 256)
                 foreground_pdf = kde_scipy(foreground_dataset, grid)
-                if(onceBg ==0 ):
-                    ok = tracker.init(stab_frame, bbox)
-                    background_resize = cv2.resize(old_bg_v, (int(width / 4), int(height / 4)))
-                    background_dataset = background_resize.flatten()
-                    background_pdf = kde_scipy(background_dataset, grid)
-                    onceBg = 1
+                ok = tracker.init(stab_frame, bbox)
+                background_resize = cv2.resize(old_bg_v, (int(width / 4), int(height / 4)))
+                background_dataset = background_resize.flatten()
+                background_pdf = kde_scipy(background_dataset, grid)
                 fg_prob = foreground_pdf / (foreground_pdf + background_pdf)
                 bg_prob = background_pdf / (foreground_pdf + background_pdf)
                 isFirst = 1
 
             #track
             ok, bbox = tracker.update(stab_frame)
+            if not ok:
+                print("Tracking in matting failed")
+                return
             stab_frame_resize = stab_frame_hsv[int(bbox[1]):int(bbox[1])+int(bbox[3]),int(bbox[0]):int(bbox[0])+int(bbox[2]),:]
             bin_frame0 = bin_frame0[int(bbox[1]):int(bbox[1])+int(bbox[3]),int(bbox[0]):int(bbox[0])+int(bbox[2])]
 
             alpha = calc_alpha(stab_frame_resize[:, :, 2], bin_frame0, background, fg_prob, bg_prob)
-
 
             #track
             init[int(bbox[1]):int(bbox[1])+int(bbox[3]),int(bbox[0]):int(bbox[0])+int(bbox[2])] = alpha
